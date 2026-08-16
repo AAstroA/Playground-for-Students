@@ -5,6 +5,7 @@
   if (!slider || !box || typeof targetBounds !== 'function' || typeof update !== 'function') return;
 
   const baseTargetBounds = targetBounds;
+  const coreUpdate = update;
   let selectedTarget = Number(slider.value) / 100;
   let expandedLo = null;
   let expandedHi = null;
@@ -24,6 +25,27 @@
       if (selectedTarget > hi) hi = selectedTarget + pad;
     }
     return {lo, hi};
+  };
+
+  function displayPrecision() {
+    const assetReturns = (typeof S !== 'undefined' && S && Array.isArray(S.assets)) ? S.assets.map(a => a.m * 100) : [];
+    const span = assetReturns.length ? Math.max(...assetReturns) - Math.min(...assetReturns) : 1;
+    return span < 0.1 ? 4 : span < 1 ? 3 : 2;
+  }
+
+  function showExactTarget() {
+    const pctValue = Number(slider.value);
+    if (!Number.isFinite(pctValue)) return;
+    const d = displayPrecision();
+    const selectedReturn = document.getElementById('selRet');
+    if (selectedReturn) selectedReturn.textContent = pctValue.toFixed(d) + '%';
+    box.value = pctValue.toFixed(d);
+    box.title = 'Exact target used in the portfolio calculation';
+  }
+
+  update = function() {
+    coreUpdate();
+    showExactTarget();
   };
 
   function expandSliderNearEdge() {
@@ -65,6 +87,9 @@
       expandedHi = null;
       originalReset();
       selectedTarget = Number(slider.value) / 100;
+      showExactTarget();
     };
   }
+
+  update();
 })();
