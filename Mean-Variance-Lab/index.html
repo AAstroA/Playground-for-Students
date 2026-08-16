@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0" />
 <title>Mean–Variance Lab</title>
 <meta name="description" content="Interactive Markowitz mean–variance portfolio simulator with GMVP, efficient frontier, asymptotes, tangency portfolio, and CML." />
-<link rel="stylesheet" href="style.css?v=20260816-2113">
+<link rel="stylesheet" href="style.css?v=20260816-2130">
 </head>
 <body>
 <div class="app">
@@ -26,13 +26,13 @@
           <div class="toggle"><input id="showIneff" type="checkbox" checked><label for="showIneff">Show inefficient branch</label></div>
           <div class="toggle"><input id="showAssets" type="checkbox" checked><label for="showAssets">Show individual assets</label></div>
         </div>
-        <div class="section"><h3>Target portfolio</h3><div class="row"><label>Target expected return</label><input class="num" id="targetBox" type="number" step="0.1"></div><input id="target" class="slider" type="range" min="0" max="25" step="0.05"><div class="hint">Move along the risky frontier. With the CML enabled, the same target return is also mapped to the corresponding risk-free/tangency combination.</div></div>
+        <div class="section"><h3>Target portfolio</h3><div class="row"><label>Target expected return</label><input class="num" id="targetBox" type="number" step="0.1"></div><input id="target" class="slider" type="range" min="0" max="25" step="0.05"><div class="hint">Move along the risky frontier. Type any target return directly; the slider and chart will expand automatically when you go beyond the current view.</div></div>
         <div class="section"><h3>Guided experiments</h3><div class="btnrow"><button class="btn experiment" data-x="rfup">Raise r<sub>f</sub></button><button class="btn experiment" data-x="corrup">Raise correlations</button><button class="btn experiment" data-x="corrdown">Lower correlations</button><button class="btn experiment" data-x="spread">Spread returns</button></div></div>
       </div>
     </section>
 
     <section class="panel mid">
-      <div class="ph"><h2>Mean–standard deviation space</h2><div class="badge" id="geomBadge">σ–μ geometry · loading v2</div></div>
+      <div class="ph"><h2>Mean–standard deviation space</h2><div class="badge" id="geomBadge">σ–μ geometry · loading v3</div></div>
       <div class="canvaswrap"><canvas id="chart" class="chart"></canvas><div class="legend" id="legend"></div><div class="status" id="status"></div></div>
     </section>
 
@@ -53,6 +53,7 @@
   </div>
   <div class="footer">Mean–Variance Lab · Educational simulator · Short sales are allowed in the analytic Markowitz solution.</div>
 </div>
-<script src="app.js?v=20260816-2113"></script>
+<script src="app.js?v=20260816-2130"></script>
+<script src="target-range.js?v=20260816-2130"></script>
 </body>
 </html>
