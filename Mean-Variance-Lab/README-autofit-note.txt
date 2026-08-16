@@ -1,1 +1,0 @@
-Auto-fit update staged.
