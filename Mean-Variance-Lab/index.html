@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mean–Variance Lab</title>
+<meta name="description" content="Interactive Markowitz mean–variance portfolio simulator with GMVP, efficient frontier, asymptotes, tangency portfolio, and CML." />
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div class="top"><div><h1>Mean–Variance Lab</h1><p>Explore Markowitz geometry, the GMVP, asymptotes, tangency portfolio, and the Capital Market Line.</p></div><div class="badge">Interactive teaching simulator · all calculations in your browser</div></div>
+  <div class="grid">
+    <section class="panel left">
+      <div class="ph"><h2>Inputs</h2><button class="btn" id="resetBtn">Reset example</button></div>
+      <div class="pb">
+        <div class="section"><h3>Risky assets</h3><div id="assets"></div><div class="btnrow"><button class="btn" id="addAsset">+ Add asset</button></div><div class="hint">Expected return μ and volatility σ are annual percentages.</div></div>
+        <div class="section"><h3>Correlations ρ</h3><div class="corrwrap" id="corr"></div><div class="hint">The covariance matrix must be positive definite. Invalid inputs are flagged automatically.</div></div>
+        <div class="section"><h3>Risk-free asset & geometry</h3>
+          <div class="row"><label>Risk-free rate r<sub>f</sub></label><input class="num" id="rf" type="number" step="0.1" value="3"></div>
+          <div class="toggle"><input id="showRf" type="checkbox" checked><label for="showRf">Show risk-free asset and CML</label></div>
+          <div class="toggle"><input id="showAsym" type="checkbox" checked><label for="showAsym">Show frontier asymptotes</label></div>
+          <div class="toggle"><input id="showIneff" type="checkbox" checked><label for="showIneff">Show inefficient branch</label></div>
+          <div class="toggle"><input id="showAssets" type="checkbox" checked><label for="showAssets">Show individual assets</label></div>
+        </div>
+        <div class="section"><h3>Target portfolio</h3><div class="row"><label>Target expected return</label><input class="num" id="targetBox" type="number" step="0.1"></div><input id="target" class="slider" type="range" min="0" max="25" step="0.05"><div class="hint">Move along the risky frontier. With the CML enabled, the same target return is also mapped to the corresponding risk-free/tangency combination.</div></div>
+        <div class="section"><h3>Guided experiments</h3><div class="btnrow"><button class="btn experiment" data-x="rfup">Raise r<sub>f</sub></button><button class="btn experiment" data-x="corrup">Raise correlations</button><button class="btn experiment" data-x="corrdown">Lower correlations</button><button class="btn experiment" data-x="spread">Spread returns</button></div></div>
+      </div>
+    </section>
+
+    <section class="panel mid">
+      <div class="ph"><h2>Mean–standard deviation space</h2><div class="badge" id="geomBadge">σ–μ geometry</div></div>
+      <div class="canvaswrap"><canvas id="chart" class="chart"></canvas><div class="legend" id="legend"></div><div class="status" id="status"></div></div>
+    </section>
+
+    <section class="panel right">
+      <div class="ph"><h2>Live portfolio anatomy</h2><button class="btn" id="mathBtn">Math details</button></div>
+      <div class="pb">
+        <div class="section"><h3>Special portfolios</h3><div class="metricgrid">
+          <div class="metric"><div class="k">GMVP return</div><div class="v" id="gmRet">—</div></div><div class="metric"><div class="k">GMVP risk</div><div class="v" id="gmRisk">—</div></div>
+          <div class="metric"><div class="k">Tangency return</div><div class="v" id="tanRet">—</div></div><div class="metric"><div class="k">Tangency Sharpe</div><div class="v" id="tanSharpe">—</div></div>
+        </div></div>
+        <div class="section"><h3>Selected risky-frontier portfolio</h3><div class="metricgrid"><div class="metric"><div class="k">Return</div><div class="v" id="selRet">—</div></div><div class="metric"><div class="k">Risk</div><div class="v" id="selRisk">—</div></div></div><div class="weights" id="riskyWeights"></div></div>
+        <div class="section" id="cmlSection"><h3>Same target return on the CML</h3><div class="metricgrid"><div class="metric"><div class="k">CML risk</div><div class="v" id="cmlRisk">—</div></div><div class="metric"><div class="k">Tangency allocation</div><div class="v" id="tanAlloc">—</div></div></div><div class="weights" id="cmlWeights"></div><div class="hint" id="borrowHint"></div></div>
+        <div class="section"><h3>Geometry</h3><div id="geometry"></div></div>
+        <div class="section" id="mathSection" style="display:none"><h3>Matrix identities</h3><div id="math"></div></div>
+        <div class="section"><h3>Interpretation</h3><div class="guide"><strong id="guideTitle">Move the target-return slider.</strong><p id="guideText">Watch portfolio weights change along the Markowitz frontier and compare the risky-only solution with the CML.</p></div></div>
+      </div>
+    </section>
+  </div>
+  <div class="footer">Mean–Variance Lab · Educational simulator · Short sales are allowed in the analytic Markowitz solution.</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
