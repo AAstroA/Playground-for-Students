@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mean–Variance Lab</title>
+<meta name="description" content="Interactive Markowitz mean–variance portfolio simulator with GMVP, efficient frontier, asymptotes, tangency portfolio and CML.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <div><h1>Mean–Variance Lab</h1><p>Explore Markowitz portfolio geometry with and without a risk-free asset. Change expected returns, volatilities, correlations and the risk-free rate, then watch the efficient frontier, GMVP, asymptotes, tangency portfolio and CML move in real time.</p></div>
+    <div class="pill">Interactive teaching simulator · browser only</div>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <div class="ph"><h2>Inputs</h2><button class="btn" id="reset">Reset example</button></div>
+      <div class="pb">
+        <div class="sec">
+          <h3>Risky assets</h3>
+          <div class="asset" style="font-size:11px;color:#667085"><span>Name</span><span>μ %</span><span>σ %</span><span></span></div>
+          <div id="assets"></div>
+          <div class="btns"><button class="btn" id="add">+ Add asset</button></div>
+          <div class="hint">μ and σ are annual expected return and volatility. Short sales are allowed in the analytic solution.</div>
+        </div>
+
+        <div class="sec">
+          <h3>Correlation matrix</h3>
+          <div class="corrwrap" id="corr"></div>
+          <div class="hint">The covariance matrix must remain positive definite.</div>
+        </div>
+
+        <div class="sec">
+          <h3>Risk-free asset & geometry</h3>
+          <div class="field"><label for="rf">Risk-free rate r<sub>f</sub></label><input class="num" id="rf" type="number" step="0.1"></div>
+          <label class="tog"><input id="riskfree" type="checkbox" checked> Show risk-free asset and CML</label>
+          <label class="tog"><input id="asym" type="checkbox" checked> Show frontier asymptotes</label>
+          <label class="tog"><input id="ineff" type="checkbox" checked> Show inefficient branch</label>
+          <label class="tog"><input id="assetsOn" type="checkbox" checked> Show individual assets</label>
+        </div>
+
+        <div class="sec">
+          <h3>Target portfolio</h3>
+          <div class="field"><label for="targetBox">Target expected return</label><input class="num" id="targetBox" type="number" step="0.1"></div>
+          <input class="slider" id="target" type="range" step="0.05">
+          <div class="hint">Move along the risky frontier and compare the same expected return on the CML.</div>
+        </div>
+
+        <div class="sec">
+          <h3>Guided experiments</h3>
+          <div class="btns">
+            <button class="btn experiment" data-x="rf">Raise r<sub>f</sub></button>
+            <button class="btn experiment" data-x="up">Raise correlations</button>
+            <button class="btn experiment" data-x="down">Lower correlations</button>
+            <button class="btn experiment" data-x="spread">Spread expected returns</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="ph"><h2>Mean–standard deviation space</h2><span class="pill">σ–μ geometry</span></div>
+      <div class="chartwrap">
+        <canvas id="chart" class="chart"></canvas>
+        <div class="legend" id="legend"></div>
+        <div class="warn" id="warn"></div>
+      </div>
+    </section>
+
+    <section class="panel right">
+      <div class="ph"><h2>Live portfolio anatomy</h2><button class="btn" id="mathToggle">Math details</button></div>
+      <div class="pb">
+        <div class="sec">
+          <h3>Special portfolios</h3>
+          <div class="metrics">
+            <div class="metric"><div class="k">GMVP return</div><div class="v" id="gmRet">—</div></div>
+            <div class="metric"><div class="k">GMVP risk</div><div class="v" id="gmRisk">—</div></div>
+            <div class="metric"><div class="k">Tangency return</div><div class="v" id="tanRet">—</div></div>
+            <div class="metric"><div class="k">Tangency risk</div><div class="v" id="tanRisk">—</div></div>
+            <div class="metric"><div class="k">Tangency Sharpe</div><div class="v" id="sharpe">—</div></div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h3>Selected risky-frontier portfolio</h3>
+          <div class="metrics">
+            <div class="metric"><div class="k">Expected return</div><div class="v" id="selRet">—</div></div>
+            <div class="metric"><div class="k">Volatility</div><div class="v" id="selRisk">—</div></div>
+          </div>
+          <div class="weights" id="riskyW"></div>
+        </div>
+
+        <div class="sec" id="cmlSec">
+          <h3>Same target return on the CML</h3>
+          <div class="metrics">
+            <div class="metric"><div class="k">CML risk</div><div class="v" id="cmlRisk">—</div></div>
+            <div class="metric"><div class="k">Tangency allocation</div><div class="v" id="tanAlloc">—</div></div>
+          </div>
+          <div class="weights" id="cmlW"></div>
+          <div class="hint" id="leverage"></div>
+        </div>
+
+        <div class="sec">
+          <h3>Geometry & special lines</h3>
+          <div id="geometry"></div>
+        </div>
+
+        <div class="sec" id="mathSec" hidden>
+          <h3>Matrix identities</h3>
+          <div id="math"></div>
+        </div>
+
+        <div class="sec">
+          <h3>Interpretation</h3>
+          <div class="guide"><strong id="guideTitle">Move the target-return slider.</strong><p id="guideText">Watch the optimal risky portfolio weights change and compare the risky-only opportunity set with the Capital Market Line.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="footer">Mean–Variance Lab · Educational simulator · Markowitz solutions shown here allow short sales.</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
