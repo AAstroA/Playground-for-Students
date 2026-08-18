@@ -24,10 +24,10 @@
       })
       .then((html) => {
         const scriptTag = '<script src="app.js?v=20260818-1"><\/script>';
-        const enhancedTag = `${scriptTag}<script src="interaction-fix.js?v=20260818-3"><\/script>`;
+        const enhancedTag = `${scriptTag}<script src="interaction-fix.js?v=20260818-3"><\/script><script src="label-polish.js?v=20260818-1"><\/script>`;
         const documentHtml = html.includes(scriptTag)
           ? html.replace(scriptTag, enhancedTag)
-          : html.replace("</body>", '<script src="app.js?v=20260818-1"><\/script><script src="interaction-fix.js?v=20260818-3"><\/script></body>');
+          : html.replace("</body>", '<script src="app.js?v=20260818-1"><\/script><script src="interaction-fix.js?v=20260818-3"><\/script><script src="label-polish.js?v=20260818-1"><\/script></body>');
         document.open();
         document.write(documentHtml);
         document.close();

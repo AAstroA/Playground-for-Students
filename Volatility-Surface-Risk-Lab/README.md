@@ -4,7 +4,7 @@ Static, browser-based teaching interface for volatility-surface shape, PCA shock
 
 ## Interaction
 
-The surface-shape controls and PCA-factor controls redraw immediately while they are moved. Both 3D surface canvases can be rotated by dragging or swiping, zoomed with the mouse wheel, reset by double-clicking, and operated from the keyboard with the arrow keys.
+The surface-shape controls and PCA-factor controls redraw immediately while they are moved. Both 3D surface canvases can be rotated by dragging or swiping, zoomed with the mouse wheel, and reset by double-clicking.
 
 ## What the browser calculates
 
