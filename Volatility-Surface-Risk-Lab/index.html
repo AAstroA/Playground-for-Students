@@ -16,18 +16,26 @@
   <script>
   (() => {
     "use strict";
+
     const frame = document.getElementById("labFrame");
+
     frame.addEventListener("load", () => {
       const doc = frame.contentDocument;
       if (!doc) return;
+      const byId = (id) => doc.getElementById(id);
 
       ["startYear", "endYear"].forEach((id) => {
-        const input = doc.getElementById(id);
+        const input = byId(id);
         if (!input) return;
         input.value = id === "startYear" ? "2005" : "2021";
         const label = input.closest("label");
-        if (label) label.style.display = "none";
+        if (label) label.remove();
       });
+
+      const heroCopy = doc.querySelector(".hero-copy");
+      if (heroCopy) {
+        heroCopy.textContent = "Shape a model-generated implied-volatility surface, move PCA factors, simulate future spot and variance, and trace the visible assumptions into portfolio VaR and expected shortfall.";
+      }
 
       const status = doc.querySelectorAll(".hero-status span");
       if (status[1]) status[1].textContent = "No WRDS observations or credentials in the browser";
@@ -45,22 +53,105 @@
       }
 
       const note = doc.createElement("section");
+      note.id = "browserScopeNote";
       note.setAttribute("aria-label", "Browser calculation and data scope");
       note.style.cssText = "margin:16px 0;padding:17px 20px;border:1px solid rgba(130,221,255,.28);border-radius:16px;background:rgba(20,43,70,.62);color:#b8c7dc;line-height:1.55";
-      note.innerHTML = "<strong style='color:#f4f7ff'>How the browser values are generated.</strong> Surface values follow explicit model-shaped formulas driven by the visible controls. Scenario paths use a seeded pseudo-random generator and stylized Heston-, GBM/FHS-, or PCA-inspired equations. Portfolio P&amp;L is computed from the selected delta, vega, gamma, vanna, and hedging assumptions. These browser calculations do not use or expose WRDS/OptionMetrics observations. The backtest table is a fixed aggregate summary from the separate WRDS-based MSc thesis report.";
+      note.innerHTML = "<strong style='color:#f4f7ff'>How the browser values are generated.</strong> For forward moneyness <em>m</em> and maturity <em>T</em>, the surface starts from the selected ATM volatility and adds a term component, a skew component proportional to <em>m − 1</em>, a curvature component proportional to <em>(m − 1)²</em>, and a small deterministic adjustment for the selected shape family. Scenario paths use a seeded pseudo-random generator and stylized Heston-, GBM/FHS-, or PCA-inspired equations. Portfolio P&amp;L is computed from the selected delta, vega, gamma, vanna, hedging, and revaluation assumptions. These browser calculations do not use or expose WRDS/OptionMetrics observations. The backtest table is a fixed aggregate summary from the separate WRDS-based MSc thesis report.";
       const bar = doc.querySelector(".experiment-bar");
-      if (bar && !doc.getElementById("browserScopeNote")) {
-        note.id = "browserScopeNote";
-        bar.insertAdjacentElement("afterend", note);
+      if (bar && !byId("browserScopeNote")) bar.insertAdjacentElement("afterend", note);
+
+      const showToast = (message) => {
+        const toast = byId("toast");
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add("show");
+        window.setTimeout(() => toast.classList.remove("show"), 2200);
+      };
+
+      const exportButton = byId("exportConfig");
+      if (exportButton) {
+        const replacement = exportButton.cloneNode(true);
+        exportButton.replaceWith(replacement);
+        replacement.addEventListener("click", () => {
+          const ids = [
+            "surfaceModel", "confidence", "seed", "atmVol", "skew", "curvature",
+            "termSlope", "sliceMaturity", "pc1", "pc2", "pc3", "pc5", "pcaBasis",
+            "loadingChoice", "scenarioModel", "horizon", "paths", "kappa", "xi", "rho",
+            "vega", "gamma", "delta"
+          ];
+          const settings = {};
+          ids.forEach((id) => {
+            const element = byId(id);
+            if (!element) return;
+            settings[id] = element.type === "number" || element.type === "range"
+              ? Number(element.value)
+              : element.value;
+          });
+          ["deltaHedge", "fullRevaluation"].forEach((id) => {
+            const element = byId(id);
+            if (element) settings[id] = Boolean(element.checked);
+          });
+          const config = {
+            app: "Volatility Surface Risk Lab",
+            version: 2,
+            calculationScope: "Browser-generated surface and scenario calculations; no WRDS or OptionMetrics observations",
+            exportedAt: new Date().toISOString(),
+            settings
+          };
+          const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+          const link = doc.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = `vol-surface-risk-config-${settings.seed}.json`;
+          link.click();
+          window.setTimeout(() => URL.revokeObjectURL(link.href), 500);
+          showToast("Experiment configuration downloaded.");
+        });
       }
 
-      const footerFingerprint = doc.getElementById("footerFingerprint");
-      if (footerFingerprint) footerFingerprint.style.display = "none";
-
-      const observer = new MutationObserver(() => {
-        if (footerFingerprint) footerFingerprint.style.display = "none";
+      doc.querySelectorAll('a[href^="http"]').forEach((link) => {
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
       });
-      if (footerFingerprint) observer.observe(footerFingerprint, { childList: true, characterData: true, subtree: true });
+
+      const footerFingerprint = byId("footerFingerprint");
+      if (footerFingerprint) footerFingerprint.remove();
+
+      const refreshScopeLabels = () => {
+        const experimentName = byId("experimentName");
+        const surfaceModel = byId("surfaceModel");
+        const confidence = byId("confidence");
+        if (experimentName && surfaceModel && confidence) {
+          const model = surfaceModel.options[surfaceModel.selectedIndex]?.textContent || "Browser surface";
+          const text = `SPX · ${model} · ${Math.round(Number(confidence.value) * 100)}% VaR`;
+          if (experimentName.textContent !== text) experimentName.textContent = text;
+        }
+
+        const title = byId("surfaceChartTitle");
+        if (title && surfaceModel) {
+          const text = surfaceModel.options[surfaceModel.selectedIndex]?.textContent || "Browser surface";
+          if (title.textContent !== text) title.textContent = text;
+        }
+
+        const role = byId("metricRole");
+        if (role && role.textContent !== "Browser formula") role.textContent = "Browser formula";
+        const roleNote = byId("metricRoleNote");
+        if (roleNote && roleNote.textContent !== "not fitted from WRDS quotes") roleNote.textContent = "not fitted from WRDS quotes";
+      };
+
+      ["surfaceModel", "confidence"].forEach((id) => {
+        const element = byId(id);
+        if (element) element.addEventListener("input", () => window.setTimeout(refreshScopeLabels, 0));
+      });
+      refreshScopeLabels();
+
+      const experimentName = byId("experimentName");
+      if (experimentName) {
+        new MutationObserver(refreshScopeLabels).observe(experimentName, {
+          childList: true,
+          characterData: true,
+          subtree: true
+        });
+      }
     });
   })();
   </script>
