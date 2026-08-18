@@ -29,7 +29,7 @@
         if (!input) return;
         input.value = id === "startYear" ? "2005" : "2021";
         const label = input.closest("label");
-        if (label) label.remove();
+        if (label) label.style.display = "none";
       });
 
       const heroCopy = doc.querySelector(".hero-copy");
