@@ -19,6 +19,19 @@ The root `index.html` is a self-contained Markowitz mean–variance simulator. I
 
 No backend or installation is required; all calculations run in the browser.
 
+## Volatility Surface Risk Lab
+
+The multi-tab volatility laboratory adds:
+
+- interactive maturity × moneyness volatility surfaces
+- covariance and correlation PCA factor shocks
+- seeded Heston-P, Heston-Q, GBM/FHS, and PCA historical scenarios
+- option-strip VaR and expected shortfall under linear and nonlinear revaluation
+- aggregated 2005–2021 backtest diagnostics and model-role comparisons
+
+The live browser calculations use illustrative data and visibly configured assumptions; licensed
+WRDS observations and credentials are never published.
+
 For GitHub Pages, serve the repository from the `main` branch/root. The intended classroom URL is:
 
 `https://aastroa.github.io/Playground-for-Students/`
