@@ -2,6 +2,7 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const wrapAngle = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
   const mats = [30, 60, 90, 180, 365];
   const money = Array.from({length: 9}, (_, i) => 0.8 + i * 0.05);
   const surfaceDomain = {min: 0, max: 80};
@@ -140,6 +141,8 @@
   function draw3d(id) {
     const canvas = $(id), view = views[id];
     if (!canvas || !view || canvas.offsetParent === null) return;
+    canvas.dataset.orbitYaw = view.yaw.toFixed(6);
+    canvas.dataset.orbitPitch = view.pitch.toFixed(6);
     const getter = id === "factorSurfaceCanvas" ? (m, d) => surfaceVol(m, d) + shock(m, d) : surfaceVol;
     const {ctx, w, h} = setup(canvas);
     const vals = mats.flatMap(d => money.map(m => getter(m, d)));
@@ -197,7 +200,7 @@
     ctx.save(); ctx.translate(18, h / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Implied volatility (%)", 0, 0); ctx.restore();
     ctx.textAlign = "left"; ctx.fillStyle = "#8293ac"; ctx.font = "10px system-ui";
     ctx.fillText(`Displayed data range ${lo.toFixed(1)}–${hi.toFixed(1)}%`, 14, h - 18);
-    ctx.textAlign = "right"; ctx.fillText("Drag to rotate · wheel to zoom · double-click to reset", w - 14, h - 18);
+    ctx.textAlign = "right"; ctx.fillText("Drag to orbit 360° · wheel to zoom · double-click to reset", w - 14, h - 18);
     ctx.restore();
   }
 
@@ -219,13 +222,20 @@
     if (!canvas || canvas.dataset.rotatable) return;
     canvas.dataset.rotatable = "1"; canvas.tabIndex = 0;
     const help = document.createElement("div"); help.className = "rotation-help";
-    help.innerHTML = "<span>Drag or swipe to rotate the plot.</span><button type='button'>Reset view</button>";
+    help.innerHTML = "<span>Drag or swipe to orbit freely above and below the surface.</span><button type='button'>Reset view</button>";
     canvas.insertAdjacentElement("afterend", help);
     let dragging = false, lastX = 0, lastY = 0;
     const reset = () => { view.yaw = -.72; view.pitch = .68; view.zoom = 1; draw3d(id); };
     help.querySelector("button").onclick = reset; canvas.ondblclick = reset;
     canvas.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.classList.add("dragging"); canvas.setPointerCapture?.(e.pointerId); e.preventDefault(); });
-    canvas.addEventListener("pointermove", e => { if (!dragging) return; view.yaw += (e.clientX - lastX) * .012; view.pitch = clamp(view.pitch + (e.clientY - lastY) * .01, -1.48, 1.48); lastX = e.clientX; lastY = e.clientY; draw3d(id); e.preventDefault(); });
+    canvas.addEventListener("pointermove", e => {
+      if (!dragging) return;
+      view.yaw = wrapAngle(view.yaw + (e.clientX - lastX) * .012);
+      view.pitch = wrapAngle(view.pitch + (e.clientY - lastY) * .01);
+      lastX = e.clientX; lastY = e.clientY;
+      draw3d(id);
+      e.preventDefault();
+    });
     const stop = e => { dragging = false; canvas.classList.remove("dragging"); if (e?.pointerId !== undefined) canvas.releasePointerCapture?.(e.pointerId); };
     canvas.addEventListener("pointerup", stop); canvas.addEventListener("pointercancel", stop); canvas.addEventListener("lostpointercapture", stop);
     canvas.addEventListener("wheel", e => { view.zoom = clamp(view.zoom * Math.exp(-e.deltaY * .0012), .55, 2.25); draw3d(id); e.preventDefault(); }, {passive: false});
