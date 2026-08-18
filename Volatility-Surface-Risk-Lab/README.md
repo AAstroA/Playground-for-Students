@@ -2,6 +2,10 @@
 
 Static, browser-based teaching interface for volatility-surface shape, PCA shocks, Heston/GBM-style scenarios, option-portfolio VaR and expected shortfall, and aggregate research backtest results.
 
+## Interaction
+
+The surface-shape controls and PCA-factor controls redraw immediately while they are moved. Both 3D surface canvases can be rotated by dragging or swiping, zoomed with the mouse wheel, reset by double-clicking, and operated from the keyboard with the arrow keys.
+
 ## What the browser calculates
 
 The displayed volatility surface is generated locally from the visible controls. For forward moneyness `m` and maturity `T`, the browser starts from an ATM level and adds a term component, a skew component proportional to `m - 1`, a curvature component proportional to `(m - 1)^2`, and a small deterministic adjustment for the selected shape family. Labels such as “B-spline-shaped,” “polynomial,” and “Heston-shaped” describe the browser formula; they do not mean that the page is fitting live option quotes.
