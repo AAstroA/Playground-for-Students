@@ -1,37 +1,27 @@
 # Playground for Students
 
-Interactive teaching tools for finance students.
-
-## Mean–Variance Lab
-
-The root `index.html` is a self-contained Markowitz mean–variance simulator. It illustrates:
-
-- risky-asset minimum-variance frontier
-- efficient and inefficient branches
-- global minimum-variance portfolio (GMVP / vertex)
-- frontier asymptotes
-- risk-free asset
-- tangency portfolio
-- Capital Market Line (CML)
-- live target-return portfolios and portfolio weights
-- the matrix constants A, B, C, and D
-- interactive changes to expected returns, volatilities, correlations, and the risk-free rate
-
-No backend or installation is required; all calculations run in the browser.
+Interactive finance laboratories designed to make model assumptions, calculations, and limitations visible.
 
 ## Volatility Surface Risk Lab
 
-The multi-tab volatility laboratory adds:
+The project began from **Alireza Moslemi Haghighi's master's-thesis work on Parametric Surface Projection (PSP)**, developed with Shiva Zamani and Hamid Arian and documented in arXiv:2311.14985. Alireza subsequently extended it into a 2005–2021 research platform with PCA, Heston models, nonlinear option repricing, and formal VaR validation.
 
-- interactive maturity × moneyness volatility surfaces
-- covariance and correlation PCA factor shocks
-- seeded Heston-P, Heston-Q, GBM/FHS, and PCA historical scenarios
-- option-strip VaR and expected shortfall under linear and nonlinear revaluation
-- aggregated 2005–2021 backtest diagnostics and model-role comparisons
+### Public-safe browser boundary
 
-The live browser calculations use illustrative data and visibly configured assumptions; licensed
-WRDS observations and credentials are never published.
+The deployed interface uses **project-authored synthetic inputs only**. It contains no Cboe, WRDS, OptionMetrics, exchange, or other vendor observations. Changing the year window changes a transparent synthetic regime generator, surface proxy, scenarios, and teaching VaR/ES values.
 
-For GitHub Pages, serve the repository from the `main` branch/root. The intended classroom URL is:
+Detailed WRDS/OptionMetrics-derived empirical tables and the extended report are withheld from the public build pending written confirmation of publication rights under Bocconi University's institutional agreements.
 
-`https://aastroa.github.io/Playground-for-Students/`
+### Required WRDS acknowledgment
+
+> Wharton Research Data Services (WRDS) was used in preparing the SPX Volatility-Surface Risk master's-thesis research and subsequent research-extension report. This service and the data available thereon constitute valuable intellectual property and trade secrets of WRDS and/or its third-party suppliers.
+
+Acknowledgment does not itself grant publication or redistribution rights.
+
+Live page: `https://aastroa.github.io/Playground-for-Students/Volatility-Surface-Risk-Lab/`
+
+Research code: `https://github.com/AAstroA/vol-surface-risk-lab`
+
+## Mean-Variance Lab
+
+The repository also contains a self-contained Markowitz mean-variance simulator.
