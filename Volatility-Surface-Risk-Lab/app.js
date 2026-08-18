@@ -4,6 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const maturities = [30, 60, 90, 180, 365];
   const money = Array.from({ length: 9 }, (_, i) => 0.8 + i * 0.05);
+  const surfaceDomain = { min: 0, max: 80 };
   const modelNames = { market: "Market B-spline", polynomial: "Polynomial", heston: "Heston structural" };
   const scenarioNames = {
     hestonP: "Heston-MC-P",
@@ -41,6 +42,7 @@
   let scenario = null;
   let toastTimer = null;
   let resizeTimer = null;
+  let activeRenderFrame = null;
 
   function number(id) { return Number($(id).value); }
   function value(id) { return $(id).value; }
@@ -100,6 +102,51 @@
     }
   }
 
+  function ticks(min, max, count) {
+    return Array.from({ length: count + 1 }, (_, i) => min + (max - min) * i / count);
+  }
+
+  function drawAxes(ctx, options) {
+    const { left, top, right, bottom, xTicks, yTicks, xPos, yPos, xFormat, yFormat, xLabel, yLabel } = options;
+    ctx.save();
+    ctx.strokeStyle = "rgba(178,198,226,0.48)";
+    ctx.fillStyle = "#93a5bf";
+    ctx.lineWidth = 1;
+    ctx.font = "10px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.beginPath(); ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.lineTo(right, bottom); ctx.stroke();
+    xTicks.forEach((v) => {
+      const x = xPos(v);
+      ctx.beginPath(); ctx.moveTo(x, bottom); ctx.lineTo(x, bottom + 5); ctx.stroke();
+      ctx.fillText(xFormat(v), x, bottom + 8);
+    });
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    yTicks.forEach((v) => {
+      const y = yPos(v);
+      ctx.beginPath(); ctx.moveTo(left - 5, y); ctx.lineTo(left, y); ctx.stroke();
+      ctx.fillText(yFormat(v), left - 8, y);
+    });
+    ctx.fillStyle = "#b7c5d9";
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(xLabel, (left + right) / 2, bottom + 42);
+    ctx.translate(left - 43, (top + bottom) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+  }
+
+  function scheduleActiveRender() {
+    if (activeRenderFrame !== null) cancelAnimationFrame(activeRenderFrame);
+    activeRenderFrame = requestAnimationFrame(() => {
+      activeRenderFrame = null;
+      renderActive();
+    });
+  }
+
   function surfaceVol(m, days, model = value("surfaceModel")) {
     const atm = number("atmVol");
     const skew = number("skew");
@@ -147,20 +194,25 @@
     return `hsla(${hue}, 82%, ${48 + z * 14}%, ${alpha})`;
   }
 
+  function surfaceRange(getter) {
+    const values = maturities.flatMap((d) => money.map((m) => getter(m, d)));
+    return { min: Math.min(...values), max: Math.max(...values) };
+  }
+
   function drawSurface(canvasId, getter) {
     const { ctx, w, h } = setupCanvas(canvasId);
     canvasBackground(ctx, w, h);
     const values = maturities.flatMap((d) => money.map((m) => getter(m, d)));
-    const min = Math.min(...values) - 1;
-    const max = Math.max(...values) + 1;
-    const left = 52, right = w - 32, top = 28, bottom = h - 44;
+    const dataMin = Math.min(...values), dataMax = Math.max(...values);
+    const min = surfaceDomain.min, max = surfaceDomain.max;
+    const left = 72, right = w - 68, top = 24, bottom = h - 70;
     const spanX = (right - left) * 0.72;
-    const depthX = (right - left) * 0.22;
-    const spanY = (bottom - top) * 0.63;
-    const depthY = (bottom - top) * 0.22;
+    const depthX = (right - left) * 0.2;
+    const spanY = (bottom - top) * 0.66;
+    const depthY = (bottom - top) * 0.18;
     const point = (mi, ti, vol) => ({
       x: left + spanX * mi / (money.length - 1) + depthX * ti / (maturities.length - 1),
-      y: bottom - spanY * (vol - min) / (max - min) - depthY * ti / (maturities.length - 1)
+      y: bottom - spanY * (clamp(vol, min, max) - min) / (max - min) - depthY * ti / (maturities.length - 1)
     });
 
     for (let ti = maturities.length - 2; ti >= 0; ti--) {
@@ -194,20 +246,39 @@
       ctx.strokeStyle = "rgba(168,149,255,0.42)"; ctx.stroke();
     });
 
-    ctx.font = "11px system-ui";
-    ctx.fillStyle = "#8191ac";
+    const origin = point(0, 0, min), xEnd = point(money.length - 1, 0, min);
+    const maturityEnd = point(money.length - 1, maturities.length - 1, min), zEnd = point(0, 0, max);
+    ctx.save();
+    ctx.strokeStyle = "rgba(189,207,232,0.55)"; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(xEnd.x, xEnd.y); ctx.lineTo(maturityEnd.x, maturityEnd.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(zEnd.x, zEnd.y); ctx.stroke();
+    ctx.font = "10px system-ui";
+    ctx.fillStyle = "#93a5bf";
+    ctx.textAlign = "center";
     [0, 2, 4, 6, 8].forEach((mi) => {
       const p = point(mi, 0, min);
-      ctx.fillText(money[mi].toFixed(2), p.x - 12, bottom + 24);
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y + 5); ctx.stroke();
+      ctx.fillText(money[mi].toFixed(2), p.x, p.y + 17);
     });
+    const maturityAngle = Math.atan2(maturityEnd.y - xEnd.y, maturityEnd.x - xEnd.x);
     maturities.forEach((d, ti) => {
+      if (![0, 2, 4].includes(ti)) return;
       const p = point(8, ti, min);
-      ctx.fillText(`${d}d`, p.x + 6, p.y + 5);
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 5, p.y + 3); ctx.stroke();
+      ctx.save(); ctx.translate(p.x + 7, p.y + 5); ctx.rotate(maturityAngle); ctx.textAlign = "left"; ctx.fillText(`${d}d`, 0, 0); ctx.restore();
     });
-    ctx.fillStyle = "#a8b5ca";
-    ctx.fillText(`${min.toFixed(0)}%`, 8, bottom - 2);
-    ctx.fillText(`${max.toFixed(0)}%`, 8, top + 8);
-    return { min, max };
+    ticks(min, max, 4).forEach((v) => {
+      const p = point(0, 0, v);
+      ctx.beginPath(); ctx.moveTo(p.x - 5, p.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(`${v.toFixed(0)}%`, p.x - 8, p.y);
+    });
+    ctx.fillStyle = "#c0cce0"; ctx.font = "11px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText("Forward moneyness F/K", (origin.x + xEnd.x) / 2, bottom + 50);
+    const maturityMid = { x: (xEnd.x + maturityEnd.x) / 2, y: (xEnd.y + maturityEnd.y) / 2 };
+    ctx.save(); ctx.translate(maturityMid.x - Math.sin(maturityAngle) * 28, maturityMid.y + Math.cos(maturityAngle) * 28); ctx.rotate(maturityAngle); ctx.fillText("Maturity (days)", 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(left - 48, (origin.y + zEnd.y) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Implied volatility (%)", 0, 0); ctx.restore();
+    ctx.restore();
+    return { min: dataMin, max: dataMax };
   }
 
   function drawSmile() {
@@ -216,7 +287,7 @@
     const d = number("sliceMaturity");
     const vals = money.map((m) => surfaceVol(m, d));
     const min = Math.min(...vals) - 1, max = Math.max(...vals) + 1;
-    const l = 43, r = w - 18, t = 20, b = h - 36;
+    const l = 58, r = w - 20, t = 18, b = h - 58;
     grid(ctx, l, t, r, b, 4, 4);
     const x = (m) => l + (m - 0.8) / 0.4 * (r - l);
     const y = (v) => b - (v - min) / (max - min) * (b - t);
@@ -224,13 +295,17 @@
     ctx.beginPath(); vals.forEach((v, i) => i ? ctx.lineTo(x(money[i]), y(v)) : ctx.moveTo(x(money[i]), y(v)));
     ctx.strokeStyle = grad; ctx.lineWidth = 3; ctx.stroke();
     vals.forEach((v, i) => { ctx.beginPath(); ctx.arc(x(money[i]), y(v), 3.2, 0, Math.PI * 2); ctx.fillStyle = "#f5f8ff"; ctx.fill(); });
-    ctx.font = "10px system-ui"; ctx.fillStyle = "#7f90aa";
-    [0.8, 0.9, 1, 1.1, 1.2].forEach((m) => ctx.fillText(m.toFixed(1), x(m) - 8, b + 20));
-    [min, (min + max) / 2, max].forEach((v) => ctx.fillText(`${v.toFixed(0)}%`, 5, y(v) + 3));
+    drawAxes(ctx, {
+      left: l, top: t, right: r, bottom: b,
+      xTicks: [0.8, 0.9, 1, 1.1, 1.2], yTicks: ticks(min, max, 4), xPos: x, yPos: y,
+      xFormat: (m) => m.toFixed(2), yFormat: (v) => `${v.toFixed(1)}%`,
+      xLabel: "Forward moneyness F/K", yLabel: "Implied volatility (%)"
+    });
   }
 
   function renderSurface() {
-    const range = drawSurface("surfaceCanvas", (m, d) => surfaceVol(m, d));
+    const getter = (m, d) => surfaceVol(m, d);
+    const range = $("surfaceCanvas").dataset.rotatable ? surfaceRange(getter) : drawSurface("surfaceCanvas", getter);
     drawSmile();
     const d = number("sliceMaturity");
     const atm = surfaceVol(1, d);
@@ -252,7 +327,7 @@
     const { ctx, w, h } = setupCanvas("loadingCanvas");
     canvasBackground(ctx, w, h);
     const pc = Number(value("loadingChoice"));
-    const pad = { l: 42, r: 18, t: 15, b: 35 };
+    const pad = { l: 64, r: 54, t: 24, b: 60 };
     const cellW = (w - pad.l - pad.r) / money.length;
     const cellH = (h - pad.t - pad.b) / maturities.length;
     let maxAbs = 0;
@@ -262,9 +337,22 @@
       ctx.fillStyle = z >= 0 ? `rgba(244,112,133,${0.16 + Math.abs(z) * 0.72})` : `rgba(74,134,255,${0.16 + Math.abs(z) * 0.72})`;
       ctx.fillRect(pad.l + mi * cellW + 1, pad.t + ti * cellH + 1, cellW - 2, cellH - 2);
     }));
-    ctx.font = "10px system-ui"; ctx.fillStyle = "#8495af";
-    maturities.forEach((d, ti) => ctx.fillText(`${d}d`, 7, pad.t + (ti + 0.6) * cellH));
-    [0, 2, 4, 6, 8].forEach((mi) => ctx.fillText(money[mi].toFixed(2), pad.l + mi * cellW, h - 12));
+    const xPos = (m) => pad.l + ((m - money[0]) / 0.05 + 0.5) * cellW;
+    const yPos = (d) => pad.t + (maturities.indexOf(d) + 0.5) * cellH;
+    drawAxes(ctx, {
+      left: pad.l, top: pad.t, right: w - pad.r, bottom: h - pad.b,
+      xTicks: money.filter((_, i) => i % 2 === 0), yTicks: maturities, xPos, yPos,
+      xFormat: (m) => m.toFixed(2), yFormat: (d) => `${d}d`,
+      xLabel: "Forward moneyness F/K", yLabel: "Maturity (days)"
+    });
+    const legendX = w - 28, legendTop = pad.t, legendBottom = h - pad.b;
+    for (let i = 0; i < 48; i++) {
+      const z = 1 - i / 47;
+      ctx.fillStyle = z >= 0.5 ? `rgba(244,112,133,${0.3 + (z - 0.5) * 1.4})` : `rgba(74,134,255,${0.3 + (0.5 - z) * 1.4})`;
+      ctx.fillRect(legendX, legendTop + i * (legendBottom - legendTop) / 48, 8, (legendBottom - legendTop) / 48 + 1);
+    }
+    ctx.fillStyle = "#93a5bf"; ctx.font = "9px system-ui"; ctx.textAlign = "left";
+    ctx.fillText("+1", legendX + 12, legendTop + 4); ctx.fillText("0", legendX + 12, (legendTop + legendBottom) / 2 + 3); ctx.fillText("−1", legendX + 12, legendBottom);
   }
 
   function drawVariance() {
@@ -272,7 +360,7 @@
     canvasBackground(ctx, w, h);
     const raw = value("pcaBasis") === "raw";
     const vals = raw ? [77, 14.7, 2.5, 1.8, 1.2] : [41, 21, 13, 8, 5];
-    const l = 42, r = w - 18, t = 18, b = h - 34;
+    const l = 58, r = w - 20, t = 20, b = h - 58;
     grid(ctx, l, t, r, b, 5, 4);
     const barW = (r - l) / vals.length * 0.54;
     vals.forEach((v, i) => {
@@ -280,14 +368,21 @@
       const y = b - v / 80 * (b - t);
       const g = ctx.createLinearGradient(0, y, 0, b); g.addColorStop(0, i === 0 ? "#82ddff" : "#a895ff"); g.addColorStop(1, "rgba(24,46,79,0.35)");
       ctx.fillStyle = g; ctx.fillRect(x, y, barW, b - y);
-      ctx.fillStyle = "#dce6f6"; ctx.font = "11px system-ui"; ctx.fillText(`${v.toFixed(v % 1 ? 1 : 0)}%`, x, y - 7);
-      ctx.fillStyle = "#8191aa"; ctx.fillText(`PC${i + 1}`, x + 3, b + 18);
+      ctx.fillStyle = "#dce6f6"; ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.fillText(`${v.toFixed(v % 1 ? 1 : 0)}%`, x, y - 7);
+    });
+    drawAxes(ctx, {
+      left: l, top: t, right: r, bottom: b,
+      xTicks: [0, 1, 2, 3, 4], yTicks: [0, 20, 40, 60, 80],
+      xPos: (i) => l + (i + 0.5) * (r - l) / vals.length, yPos: (v) => b - v / 80 * (b - t),
+      xFormat: (i) => `PC${i + 1}`, yFormat: (v) => `${v}%`,
+      xLabel: "Principal component", yLabel: "Explained variance (%)"
     });
     $("basisChip").textContent = raw ? "Empirical raw basis" : "Standardized demo";
   }
 
   function renderFactors() {
-    drawSurface("factorSurfaceCanvas", (m, d) => clamp(surfaceVol(m, d) + factorShock(m, d), 5, 95));
+    const getter = (m, d) => clamp(surfaceVol(m, d) + factorShock(m, d), 5, 95);
+    if (!$("factorSurfaceCanvas").dataset.rotatable) drawSurface("factorSurfaceCanvas", getter);
     drawLoading(); drawVariance();
     const norm = Math.sqrt(["pc1", "pc2", "pc3", "pc5"].reduce((s, id) => s + number(id) ** 2, 0));
     $("factorNorm").textContent = `${norm.toFixed(2)}σ total`;
@@ -372,7 +467,7 @@
   function drawFan() {
     const { ctx, w, h } = setupCanvas("fanCanvas");
     canvasBackground(ctx, w, h);
-    const l = 46, r = w - 18, t = 20, b = h - 38;
+    const l = 60, r = w - 20, t = 22, b = h - 60;
     const qs = scenario.pathsByStep.map((arr) => {
       const s = [...arr].sort((a, b) => a - b);
       return [quantile(s, 0.01), quantile(s, 0.05), quantile(s, 0.5), quantile(s, 0.95), quantile(s, 0.99)];
@@ -392,9 +487,13 @@
     });
     ctx.beginPath(); qs.forEach((q, i) => i ? ctx.lineTo(x(i), y(q[2])) : ctx.moveTo(x(i), y(q[2])));
     ctx.strokeStyle = "#82ddff"; ctx.lineWidth = 2.5; ctx.stroke();
-    ctx.font = "10px system-ui"; ctx.fillStyle = "#8292ab";
-    [0, Math.round(scenario.steps / 2), scenario.steps].forEach((i) => ctx.fillText(`${i}d`, x(i) - 7, b + 20));
-    [min, (min + max) / 2, max].forEach((v) => ctx.fillText(v.toFixed(1), 7, y(v) + 3));
+    const dayTicks = [...new Set([0, Math.round(scenario.steps / 4), Math.round(scenario.steps / 2), Math.round(3 * scenario.steps / 4), scenario.steps])];
+    drawAxes(ctx, {
+      left: l, top: t, right: r, bottom: b,
+      xTicks: dayTicks, yTicks: ticks(min, max, 4), xPos: x, yPos: y,
+      xFormat: (v) => `${v}d`, yFormat: (v) => v.toFixed(1),
+      xLabel: "Trading-day horizon", yLabel: "Spot index (S₀ = 100)"
+    });
   }
 
   function drawJoint() {
@@ -402,7 +501,7 @@
     canvasBackground(ctx, w, h);
     const xs = scenario.returns.map((x) => x * 100), ys = scenario.terminalVar.map((v) => Math.sqrt(v) * 100);
     const xmin = Math.min(...xs), xmax = Math.max(...xs), ymin = Math.min(...ys), ymax = Math.max(...ys);
-    const l = 43, r = w - 17, t = 18, b = h - 36;
+    const l = 62, r = w - 20, t = 20, b = h - 60;
     grid(ctx, l, t, r, b, 5, 5);
     const xp = (v) => l + (v - xmin) / (xmax - xmin || 1) * (r - l), yp = (v) => b - (v - ymin) / (ymax - ymin || 1) * (b - t);
     const step = Math.max(1, Math.floor(xs.length / 420));
@@ -410,9 +509,12 @@
       ctx.beginPath(); ctx.arc(xp(xs[i]), yp(ys[i]), 2.1, 0, Math.PI * 2);
       ctx.fillStyle = xs[i] < 0 ? "rgba(255,112,133,0.42)" : "rgba(72,213,181,0.4)"; ctx.fill();
     }
-    ctx.font = "10px system-ui"; ctx.fillStyle = "#8191aa";
-    ctx.fillText(`${xmin.toFixed(1)}%`, l, b + 19); ctx.fillText(`${xmax.toFixed(1)}%`, r - 28, b + 19);
-    ctx.fillText(`${ymin.toFixed(0)}%`, 5, b); ctx.fillText(`${ymax.toFixed(0)}%`, 5, t + 4);
+    drawAxes(ctx, {
+      left: l, top: t, right: r, bottom: b,
+      xTicks: ticks(xmin, xmax, 4), yTicks: ticks(ymin, ymax, 4), xPos: xp, yPos: yp,
+      xFormat: (v) => `${v.toFixed(1)}%`, yFormat: (v) => `${v.toFixed(1)}%`,
+      xLabel: "Terminal log return", yLabel: "Terminal volatility"
+    });
   }
 
   function renderScenario() {
@@ -457,7 +559,7 @@
     const bins = 42, counts = Array(bins).fill(0);
     values.forEach((v) => { const k = clamp(Math.floor((v - min) / (max - min || 1) * bins), 0, bins - 1); counts[k]++; });
     const cmax = Math.max(...counts);
-    const l = 45, r = w - 18, t = 20, b = h - 38;
+    const l = 64, r = w - 20, t = 22, b = h - 60;
     grid(ctx, l, t, r, b, 6, 4);
     counts.forEach((c, i) => {
       const x = l + i / bins * (r - l), bw = (r - l) / bins - 1;
@@ -473,8 +575,13 @@
     };
     markerLine(marker, "#ff7085", "VaR cutoff");
     if (marker2 !== null) markerLine(marker2, "#f4cf7a", "ES");
-    ctx.font = "10px system-ui"; ctx.fillStyle = "#8191aa";
-    ctx.fillText(moneyFmt(min), l, b + 20); ctx.fillText(moneyFmt(max), r - 48, b + 20);
+    drawAxes(ctx, {
+      left: l, top: t, right: r, bottom: b,
+      xTicks: ticks(min, max, 4), yTicks: ticks(0, cmax, 4),
+      xPos: (v) => l + (v - min) / (max - min || 1) * (r - l), yPos: (v) => b - v / (cmax || 1) * (b - t),
+      xFormat: moneyFmt, yFormat: (v) => Math.round(v).toString(),
+      xLabel: "Portfolio P&L", yLabel: "Scenario count"
+    });
   }
 
   function renderBacktest() {
@@ -490,7 +597,7 @@
   function drawCoverage(rows, level) {
     const { ctx, w, h } = setupCanvas("coverageCanvas");
     canvasBackground(ctx, w, h);
-    const l = 40, r = w - 16, t = 22, b = h - 48;
+    const l = 60, r = w - 18, t = 34, b = h - 62;
     const max = Math.max(...rows.flatMap((x) => [x.expected, x.breaches])) * 1.14;
     grid(ctx, l, t, r, b, 3, 4);
     const groupW = (r - l) / rows.length, bw = Math.min(28, groupW * 0.24);
@@ -499,12 +606,18 @@
       const ye = b - row.expected / max * (b - t), yo = b - row.breaches / max * (b - t);
       ctx.fillStyle = "rgba(130,221,255,0.36)"; ctx.fillRect(center - bw - 2, ye, bw, b - ye);
       ctx.fillStyle = row.p >= 0.05 ? "rgba(115,230,169,0.72)" : "rgba(255,112,133,0.7)"; ctx.fillRect(center + 2, yo, bw, b - yo);
-      ctx.fillStyle = "#8797b1"; ctx.font = "9px system-ui"; ctx.textAlign = "center";
-      const labels = ["GBM/FHS", "Heston-P", "Heston-Q"]; ctx.fillText(labels[i], center, b + 18);
+    });
+    const labels = ["GBM/FHS", "Heston-P", "Heston-Q"];
+    drawAxes(ctx, {
+      left: l, top: t, right: r, bottom: b,
+      xTicks: [0, 1, 2], yTicks: ticks(0, max, 4),
+      xPos: (i) => l + (i + 0.5) * groupW, yPos: (v) => b - v / max * (b - t),
+      xFormat: (i) => labels[i], yFormat: (v) => Math.round(v).toString(),
+      xLabel: "Scenario model", yLabel: "VaR exceptions"
     });
     ctx.textAlign = "left"; ctx.fillStyle = "#8191aa"; ctx.font = "10px system-ui";
-    ctx.fillText("Expected", l, h - 8); ctx.fillStyle = "#82ddff"; ctx.fillRect(l + 48, h - 16, 9, 9);
-    ctx.fillStyle = "#8191aa"; ctx.fillText("Observed", l + 73, h - 8); ctx.fillStyle = "#ff7085"; ctx.fillRect(l + 124, h - 16, 9, 9);
+    ctx.fillText("Expected", l + 12, 18); ctx.fillStyle = "#82ddff"; ctx.fillRect(l, 10, 8, 8);
+    ctx.fillStyle = "#8191aa"; ctx.fillText("Observed", l + 94, 18); ctx.fillStyle = "#ff7085"; ctx.fillRect(l + 82, 10, 8, 8);
   }
 
   function revalue() {
@@ -553,7 +666,7 @@
     });
     history.replaceState(null, "", `#${button.id.replace("tab-", "")}`);
     if (focus) button.focus();
-    requestAnimationFrame(renderActive);
+    scheduleActiveRender();
   }
 
   function renderActive() {
@@ -596,19 +709,19 @@
       });
     });
 
-    ["atmVol", "skew", "curvature", "termSlope", "sliceMaturity", "surfaceModel"].forEach((id) => $(id).addEventListener("input", () => { updateOutputs(); renderSurface(); renderFactors(); }));
-    ["pc1", "pc2", "pc3", "pc5", "pcaBasis", "loadingChoice"].forEach((id) => $(id).addEventListener("input", () => { updateOutputs(); renderFactors(); }));
+    ["atmVol", "skew", "curvature", "termSlope", "sliceMaturity", "surfaceModel"].forEach((id) => $(id).addEventListener("input", () => { updateOutputs(); scheduleActiveRender(); }));
+    ["pc1", "pc2", "pc3", "pc5", "pcaBasis", "loadingChoice"].forEach((id) => $(id).addEventListener("input", () => { updateOutputs(); scheduleActiveRender(); }));
     ["horizon", "paths", "kappa", "xi", "rho", "scenarioModel"].forEach((id) => $(id).addEventListener("input", updateOutputs));
     ["vega", "gamma", "delta", "deltaHedge", "fullRevaluation"].forEach((id) => $(id).addEventListener("input", () => { updateOutputs(); revalue(); }));
     ["startYear", "endYear", "seed"].forEach((id) => $(id).addEventListener("change", updateOutputs));
     $("confidence").addEventListener("change", () => { updateOutputs(); revalue(); });
     $("runScenarios").addEventListener("click", () => { simulate(); showToast(`${scenarioNames[value("scenarioModel")]} scenarios refreshed.`); });
     $("revaluePortfolio").addEventListener("click", () => { revalue(); showToast("Portfolio revalued on the active scenarios."); });
-    $("surfacePreset").addEventListener("click", () => { $("atmVol").value = 42; $("skew").value = -24; $("curvature").value = 31; $("termSlope").value = -5; updateOutputs(); renderSurface(); renderFactors(); showToast("Crisis-shaped surface loaded."); });
-    $("factorReset").addEventListener("click", () => { ["pc1", "pc2", "pc3", "pc5"].forEach((id) => $(id).value = 0); updateOutputs(); renderFactors(); });
+    $("surfacePreset").addEventListener("click", () => { $("atmVol").value = 42; $("skew").value = -24; $("curvature").value = 31; $("termSlope").value = -5; updateOutputs(); scheduleActiveRender(); showToast("Crisis-shaped surface loaded."); });
+    $("factorReset").addEventListener("click", () => { ["pc1", "pc2", "pc3", "pc5"].forEach((id) => $(id).value = 0); updateOutputs(); scheduleActiveRender(); });
     $("riskPreset").addEventListener("click", () => { $("vega").value = 500; $("gamma").value = 250; $("delta").value = 0; $("deltaHedge").checked = true; $("fullRevaluation").checked = true; updateOutputs(); revalue(); });
     $("resetAll").addEventListener("click", resetAll); $("exportConfig").addEventListener("click", exportConfig);
-    window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderActive, 120); });
+    window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(scheduleActiveRender, 120); });
   }
 
   function init() {

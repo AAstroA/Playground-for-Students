@@ -4,6 +4,7 @@
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const mats = [30, 60, 90, 180, 365];
   const money = Array.from({length: 9}, (_, i) => 0.8 + i * 0.05);
+  const surfaceDomain = {min: 0, max: 80};
   const labels = {
     market: "B-spline-shaped browser surface",
     polynomial: "Polynomial browser surface",
@@ -142,10 +143,16 @@
     const getter = id === "factorSurfaceCanvas" ? (m, d) => surfaceVol(m, d) + shock(m, d) : surfaceVol;
     const {ctx, w, h} = setup(canvas);
     const vals = mats.flatMap(d => money.map(m => getter(m, d)));
-    const lo = Math.min(...vals), hi = Math.max(...vals), range = Math.max(hi - lo, 1e-6);
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const range = surfaceDomain.max - surfaceDomain.min;
+    const worldPoint = (mi, ti, vol) => ({
+      x: (mi / 8 - .5) * 2.55,
+      y: (ti / 4 - .5) * 1.85,
+      z: ((clamp(vol, surfaceDomain.min, surfaceDomain.max) - surfaceDomain.min) / range - .5) * 1.6
+    });
     const grid = mats.map((d, ti) => money.map((m, mi) => {
       const vol = getter(m, d);
-      return {vol, world: {x: (mi / 8 - .5) * 2.55, y: (ti / 4 - .5) * 1.85, z: ((vol - lo) / range - .5) * 1.6}};
+      return {vol, world: worldPoint(mi, ti, vol)};
     }));
     const cells = [];
     for (let ti = 0; ti < 4; ti++) for (let mi = 0; mi < 8; mi++) {
@@ -155,25 +162,54 @@
     }
     cells.sort((a, b) => a.depth - b.depth).forEach(c => {
       ctx.beginPath(); ctx.moveTo(c.points[0].x, c.points[0].y); c.points.slice(1).forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
-      ctx.fillStyle = color((c.avg - lo) / range, .5); ctx.fill(); ctx.strokeStyle = "rgba(145,211,240,.22)"; ctx.stroke();
+      ctx.fillStyle = color((c.avg - surfaceDomain.min) / range, .5); ctx.fill(); ctx.strokeStyle = "rgba(145,211,240,.22)"; ctx.stroke();
     });
     ctx.lineWidth = 1.25;
     grid.forEach(row => { ctx.beginPath(); row.forEach((n, i) => { const p = project(n.world, view, w, h); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.strokeStyle = "rgba(130,221,255,.65)"; ctx.stroke(); });
     money.forEach((_, mi) => { ctx.beginPath(); grid.forEach((row, i) => { const p = project(row[mi].world, view, w, h); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }); ctx.strokeStyle = "rgba(168,149,255,.5)"; ctx.stroke(); });
-    ctx.font = "11px system-ui"; ctx.fillStyle = "#8c9db6"; ctx.fillText(`${lo.toFixed(1)}%`, 14, h - 18); ctx.fillText(`${hi.toFixed(1)}%`, 14, 24);
-    ctx.textAlign = "right"; ctx.fillText("Drag to rotate · wheel to zoom · double-click to reset", w - 14, h - 18); ctx.textAlign = "left";
+    const origin = project(worldPoint(0, 0, surfaceDomain.min), view, w, h);
+    const xEnd = project(worldPoint(8, 0, surfaceDomain.min), view, w, h);
+    const maturityEnd = project(worldPoint(8, 4, surfaceDomain.min), view, w, h);
+    const zEnd = project(worldPoint(0, 0, surfaceDomain.max), view, w, h);
+    ctx.save();
+    ctx.strokeStyle = "rgba(198,215,238,.7)"; ctx.lineWidth = 1.15;
+    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(xEnd.x, xEnd.y); ctx.lineTo(maturityEnd.x, maturityEnd.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(zEnd.x, zEnd.y); ctx.stroke();
+    ctx.fillStyle = "#a5b5cb"; ctx.font = "10px system-ui"; ctx.textBaseline = "middle";
+    [0, 2, 4, 6, 8].forEach(mi => {
+      const p = project(worldPoint(mi, 0, surfaceDomain.min), view, w, h);
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y + 5); ctx.stroke();
+      ctx.textAlign = "center"; ctx.fillText(money[mi].toFixed(2), p.x, p.y + 15);
+    });
+    [0, 2, 4].forEach(ti => {
+      const p = project(worldPoint(8, ti, surfaceDomain.min), view, w, h);
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 5, p.y); ctx.stroke();
+      ctx.textAlign = "left"; ctx.fillText(`${mats[ti]}d`, p.x + 8, p.y);
+    });
+    [0, 20, 40, 60, 80].forEach(vol => {
+      const p = project(worldPoint(0, 0, vol), view, w, h);
+      ctx.beginPath(); ctx.moveTo(p.x - 5, p.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      ctx.textAlign = "right"; ctx.fillText(`${vol}%`, p.x - 8, p.y);
+    });
+    ctx.fillStyle = "#c3cee0"; ctx.font = "11px system-ui"; ctx.textAlign = "center";
+    ctx.fillText("Forward moneyness F/K", (origin.x + xEnd.x) / 2, (origin.y + xEnd.y) / 2 + 31);
+    ctx.fillText("Maturity (days)", (xEnd.x + maturityEnd.x) / 2 + 28, (xEnd.y + maturityEnd.y) / 2 + 18);
+    ctx.save(); ctx.translate(18, h / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Implied volatility (%)", 0, 0); ctx.restore();
+    ctx.textAlign = "left"; ctx.fillStyle = "#8293ac"; ctx.font = "10px system-ui";
+    ctx.fillText(`Displayed data range ${lo.toFixed(1)}–${hi.toFixed(1)}%`, 14, h - 18);
+    ctx.textAlign = "right"; ctx.fillText("Drag to rotate · wheel to zoom · double-click to reset", w - 14, h - 18);
+    ctx.restore();
   }
 
   function drawVisible() { draw3d("surfaceCanvas"); draw3d("factorSurfaceCanvas"); }
   function schedule3d() {
     cancelAnimationFrame(drawFrame);
-    drawFrame = requestAnimationFrame(() => requestAnimationFrame(drawVisible));
+    drawFrame = requestAnimationFrame(drawVisible);
   }
   function forceLiveRender() {
-    if (liveFrame) return;
+    cancelAnimationFrame(liveFrame);
     liveFrame = requestAnimationFrame(() => {
       liveFrame = 0; syncLabels();
-      document.querySelector('.tab-bar [role="tab"][aria-selected="true"]')?.click();
       schedule3d();
     });
   }
