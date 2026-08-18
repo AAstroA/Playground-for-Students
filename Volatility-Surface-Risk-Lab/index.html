@@ -4,262 +4,65 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07101f">
-  <meta name="description" content="Interactive volatility-surface, PCA, Heston scenario, and option-portfolio risk laboratory.">
+  <meta name="description" content="Interactive volatility-surface, PCA, scenario, and option-portfolio risk laboratory.">
   <title>Volatility Surface Risk Lab</title>
-  <link rel="stylesheet" href="style.css?v=20260818-1">
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b16}
+    iframe{display:block;width:100%;height:100%;border:0;background:#050b16}
+  </style>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Interactive quantitative-risk laboratory</p>
-        <h1>Volatility Surface<br><span>Risk Lab</span></h1>
-        <p class="hero-copy">Reconstruct an implied-volatility surface, move its PCA factors, simulate future spot and variance, and trace every modeling choice into portfolio VaR and expected shortfall.</p>
-      </div>
-      <div class="hero-status" aria-label="Application status">
-        <span><i class="status-dot"></i> Browser-only demo</span>
-        <span>No credentials or licensed data</span>
-        <span>Seeded & reproducible</span>
-      </div>
-    </header>
+  <iframe id="labFrame" src="lab.html" title="Volatility Surface Risk Lab"></iframe>
+  <script>
+  (() => {
+    "use strict";
+    const frame = document.getElementById("labFrame");
+    frame.addEventListener("load", () => {
+      const doc = frame.contentDocument;
+      if (!doc) return;
 
-    <section class="experiment-bar" aria-label="Active experiment settings">
-      <div class="experiment-title">
-        <small>Active experiment</small>
-        <strong id="experimentName">SPX · market surface · 95% VaR</strong>
-      </div>
-      <label>Start year
-        <input id="startYear" type="number" min="2005" max="2021" value="2005">
-      </label>
-      <label>End year
-        <input id="endYear" type="number" min="2005" max="2021" value="2021">
-      </label>
-      <label>Surface model
-        <select id="surfaceModel">
-          <option value="market">Market B-spline</option>
-          <option value="polynomial">Polynomial</option>
-          <option value="heston">Heston structural</option>
-        </select>
-      </label>
-      <label>Tail level
-        <select id="confidence">
-          <option value="0.90">90%</option>
-          <option value="0.95" selected>95%</option>
-          <option value="0.99">99%</option>
-        </select>
-      </label>
-      <label>Seed
-        <input id="seed" type="number" min="1" max="999999" value="2311">
-      </label>
-      <div class="bar-actions">
-        <button class="button ghost" id="resetAll" type="button">Reset</button>
-        <button class="button primary" id="exportConfig" type="button">Export config</button>
-      </div>
-    </section>
+      ["startYear", "endYear"].forEach((id) => {
+        const input = doc.getElementById(id);
+        if (!input) return;
+        input.value = id === "startYear" ? "2005" : "2021";
+        const label = input.closest("label");
+        if (label) label.style.display = "none";
+      });
 
-    <nav class="tab-bar" role="tablist" aria-label="Volatility risk laboratory sections">
-      <button id="tab-surface" role="tab" aria-selected="true" aria-controls="panel-surface"><span>01</span>Surface studio</button>
-      <button id="tab-factors" role="tab" aria-selected="false" aria-controls="panel-factors" tabindex="-1"><span>02</span>PCA factors</button>
-      <button id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1"><span>03</span>Scenario engine</button>
-      <button id="tab-risk" role="tab" aria-selected="false" aria-controls="panel-risk" tabindex="-1"><span>04</span>Risk & backtests</button>
-      <button id="tab-compare" role="tab" aria-selected="false" aria-controls="panel-compare" tabindex="-1"><span>05</span>Compare & notes</button>
-    </nav>
+      const status = doc.querySelectorAll(".hero-status span");
+      if (status[1]) status[1].textContent = "No WRDS observations or credentials in the browser";
 
-    <main>
-      <section id="panel-surface" class="tab-panel" role="tabpanel" aria-labelledby="tab-surface">
-        <div class="section-heading">
-          <div><p class="eyebrow">Representation layer</p><h2>Build the market state</h2></div>
-          <p>Move one parameter at a time and inspect the entire maturity × forward-moneyness grid. Values are illustrative annualized Black-equivalent implied volatilities.</p>
-        </div>
-        <div class="workspace-grid surface-layout">
-          <aside class="control-card">
-            <div class="card-heading"><div><small>Surface controls</small><h3>Shape parameters</h3></div><button class="mini-button" id="surfacePreset" type="button">Crisis preset</button></div>
-            <label class="range-row"><span>ATM volatility <output id="atmVolOut">20.0%</output></span><input id="atmVol" type="range" min="10" max="60" value="20" step="0.5"></label>
-            <label class="range-row"><span>Equity skew <output id="skewOut">−12.0 vol</output></span><input id="skew" type="range" min="-30" max="10" value="-12" step="0.5"></label>
-            <label class="range-row"><span>Smile curvature <output id="curvatureOut">18.0</output></span><input id="curvature" type="range" min="0" max="45" value="18" step="0.5"></label>
-            <label class="range-row"><span>Term slope <output id="termSlopeOut">3.0 vol</output></span><input id="termSlope" type="range" min="-8" max="15" value="3" step="0.5"></label>
-            <label class="select-row">Smile slice
-              <select id="sliceMaturity">
-                <option value="30">30 days</option><option value="60">60 days</option><option value="90" selected>90 days</option><option value="180">180 days</option><option value="365">365 days</option>
-              </select>
-            </label>
-            <div class="micro-note"><strong>Coordinate system</strong><span>Forward moneyness F/K removes first-order carry. The production study uses a fixed 5 × 9 grid with quote-hull diagnostics.</span></div>
-          </aside>
+      const surfaceOption = doc.querySelector('#surfaceModel option[value="market"]');
+      if (surfaceOption) surfaceOption.textContent = "B-spline-shaped browser surface";
+      const polynomialOption = doc.querySelector('#surfaceModel option[value="polynomial"]');
+      if (polynomialOption) polynomialOption.textContent = "Polynomial browser surface";
+      const hestonOption = doc.querySelector('#surfaceModel option[value="heston"]');
+      if (hestonOption) hestonOption.textContent = "Heston-shaped browser surface";
 
-          <article class="chart-card surface-card">
-            <div class="card-heading"><div><small>Interactive 3D view</small><h3 id="surfaceChartTitle">Market B-spline surface</h3></div><div class="legend-scale"><span>Low IV</span><i></i><span>High IV</span></div></div>
-            <canvas id="surfaceCanvas" aria-label="Three-dimensional implied-volatility surface"></canvas>
-            <div class="axis-note"><span>Forward moneyness F/K →</span><span>Maturity →</span><span>Height = implied volatility</span></div>
-          </article>
+      const surfaceIntro = doc.querySelector("#panel-surface .section-heading > p");
+      if (surfaceIntro) {
+        surfaceIntro.textContent = "The displayed surface is generated in the browser from the visible ATM-volatility, skew, curvature, term-slope, and model-shape controls. It is not fitted from WRDS or OptionMetrics quotes.";
+      }
 
-          <article class="chart-card smile-card">
-            <div class="card-heading"><div><small>Cross-section</small><h3 id="smileTitle">90-day smile</h3></div><span class="chip">Live</span></div>
-            <canvas id="smileCanvas" aria-label="Implied-volatility smile"></canvas>
-          </article>
+      const note = doc.createElement("section");
+      note.setAttribute("aria-label", "Browser calculation and data scope");
+      note.style.cssText = "margin:16px 0;padding:17px 20px;border:1px solid rgba(130,221,255,.28);border-radius:16px;background:rgba(20,43,70,.62);color:#b8c7dc;line-height:1.55";
+      note.innerHTML = "<strong style='color:#f4f7ff'>How the browser values are generated.</strong> Surface values follow explicit model-shaped formulas driven by the visible controls. Scenario paths use a seeded pseudo-random generator and stylized Heston-, GBM/FHS-, or PCA-inspired equations. Portfolio P&amp;L is computed from the selected delta, vega, gamma, vanna, and hedging assumptions. These browser calculations do not use or expose WRDS/OptionMetrics observations. The backtest table is a fixed aggregate summary from the separate WRDS-based MSc thesis report.";
+      const bar = doc.querySelector(".experiment-bar");
+      if (bar && !doc.getElementById("browserScopeNote")) {
+        note.id = "browserScopeNote";
+        bar.insertAdjacentElement("afterend", note);
+      }
 
-          <div class="metric-strip" aria-label="Surface diagnostics">
-            <div><small>ATM IV</small><strong id="metricAtm">20.0%</strong><span>selected slice</span></div>
-            <div><small>Wing spread</small><strong id="metricWing">9.6 vol</strong><span>80% minus 100%</span></div>
-            <div><small>Grid range</small><strong id="metricRange">—</strong><span>min–max IV</span></div>
-            <div><small>Model role</small><strong id="metricRole">Market fit</strong><span id="metricRoleNote">scenario starting state</span></div>
-          </div>
-        </div>
-      </section>
+      const footerFingerprint = doc.getElementById("footerFingerprint");
+      if (footerFingerprint) footerFingerprint.style.display = "none";
 
-      <section id="panel-factors" class="tab-panel" role="tabpanel" aria-labelledby="tab-factors" hidden>
-        <div class="section-heading">
-          <div><p class="eyebrow">Dimension reduction</p><h2>Move the surface by factors</h2></div>
-          <p>Raw covariance PCA and correlation PCA need not produce the same geometry. Use the factor controls to separate level, skew, term-slope, and curvature shocks.</p>
-        </div>
-        <div class="workspace-grid factor-layout">
-          <aside class="control-card">
-            <div class="card-heading"><div><small>Factor shock</small><h3>Standard deviations</h3></div><button class="mini-button" id="factorReset" type="button">Zero factors</button></div>
-            <label class="range-row"><span>PC1 · level <output id="pc1Out">+0.0σ</output></span><input id="pc1" type="range" min="-3" max="3" value="0" step="0.1"></label>
-            <label class="range-row"><span>PC2 · moneyness slope <output id="pc2Out">+0.0σ</output></span><input id="pc2" type="range" min="-3" max="3" value="0" step="0.1"></label>
-            <label class="range-row"><span>PC3 · term slope <output id="pc3Out">+0.0σ</output></span><input id="pc3" type="range" min="-3" max="3" value="0" step="0.1"></label>
-            <label class="range-row"><span>PC5 · curvature <output id="pc5Out">+0.0σ</output></span><input id="pc5" type="range" min="-3" max="3" value="0" step="0.1"></label>
-            <label class="select-row">PCA basis
-              <select id="pcaBasis"><option value="raw">Covariance PCA</option><option value="correlation">Correlation PCA</option></select>
-            </label>
-            <div class="micro-note warning"><strong>Interpretation guard</strong><span>In the thesis sample, raw PC1 is concentrated in short-dated wings. Correlation PCA is closer to the textbook level/slope/curvature story.</span></div>
-          </aside>
-
-          <article class="chart-card factor-surface-card">
-            <div class="card-heading"><div><small>Reconstructed state</small><h3>Base surface + PCA shock</h3></div><span class="chip" id="factorNorm">0.00σ total</span></div>
-            <canvas id="factorSurfaceCanvas" aria-label="PCA shocked volatility surface"></canvas>
-          </article>
-
-          <article class="chart-card loading-card">
-            <div class="card-heading"><div><small>Selected loading</small><h3>Factor geometry</h3></div><select id="loadingChoice"><option value="1">PC1</option><option value="2">PC2</option><option value="3">PC3</option><option value="5">PC5</option></select></div>
-            <canvas id="loadingCanvas" aria-label="PCA loading heatmap"></canvas>
-          </article>
-
-          <article class="chart-card variance-card">
-            <div class="card-heading"><div><small>Variance captured</small><h3>Explained variance</h3></div><span class="chip" id="basisChip">Raw basis</span></div>
-            <canvas id="varianceCanvas" aria-label="PCA explained variance chart"></canvas>
-          </article>
-        </div>
-      </section>
-
-      <section id="panel-scenarios" class="tab-panel" role="tabpanel" aria-labelledby="tab-scenarios" hidden>
-        <div class="section-heading">
-          <div><p class="eyebrow">Transition law</p><h2>Simulate tomorrow’s market</h2></div>
-          <p>Compare historical surface shocks, joint GBM/FHS shocks, and Heston spot–variance dynamics. Physical-measure scenarios are kept distinct from risk-neutral pricing sensitivities.</p>
-        </div>
-        <div class="workspace-grid scenario-layout">
-          <aside class="control-card">
-            <div class="card-heading"><div><small>Scenario settings</small><h3>Future dynamics</h3></div><button class="mini-button accent" id="runScenarios" type="button">Run paths</button></div>
-            <label class="select-row">Scenario law
-              <select id="scenarioModel"><option value="hestonP">Heston-MC-P · physical</option><option value="gbmFhs">GBM + PSP-FHS</option><option value="pcaHs">PCA historical surface</option><option value="hestonQ">Heston-MC-Q · sensitivity</option></select>
-            </label>
-            <label class="range-row"><span>Horizon <output id="horizonOut">10 days</output></span><input id="horizon" type="range" min="1" max="30" value="10" step="1"></label>
-            <label class="range-row"><span>Paths <output id="pathsOut">600</output></span><input id="paths" type="range" min="200" max="1600" value="600" step="100"></label>
-            <label class="range-row"><span>Mean reversion κ <output id="kappaOut">4.0</output></span><input id="kappa" type="range" min="0.5" max="12" value="4" step="0.25"></label>
-            <label class="range-row"><span>Vol of variance ξ <output id="xiOut">0.55</output></span><input id="xi" type="range" min="0.1" max="1.5" value="0.55" step="0.05"></label>
-            <label class="range-row"><span>Spot/variance ρ <output id="rhoOut">−0.70</output></span><input id="rho" type="range" min="-0.95" max="0.2" value="-0.7" step="0.05"></label>
-            <div class="measure-callout" id="measureCallout"><span>P</span><div><strong>Physical transition</strong><small>Appropriate candidate for VaR scenario probabilities.</small></div></div>
-          </aside>
-
-          <article class="chart-card fan-card">
-            <div class="card-heading"><div><small>Spot paths</small><h3>Scenario fan</h3></div><span class="chip" id="fanChip">600 paths · 10 days</span></div>
-            <canvas id="fanCanvas" aria-label="Simulated future spot paths and confidence fan"></canvas>
-          </article>
-
-          <article class="chart-card joint-card">
-            <div class="card-heading"><div><small>Terminal state</small><h3>Spot × variance</h3></div><span class="chip" id="corrChip">ρ = −0.70</span></div>
-            <canvas id="jointCanvas" aria-label="Joint terminal spot and variance scenarios"></canvas>
-          </article>
-
-          <div class="metric-strip scenario-metrics">
-            <div><small>Median spot</small><strong id="medianSpot">100.0</strong><span>normalized index</span></div>
-            <div><small>1% spot</small><strong id="tailSpot">—</strong><span>left tail</span></div>
-            <div><small>Median variance</small><strong id="medianVar">—</strong><span>annualized</span></div>
-            <div><small>Realized corr.</small><strong id="realizedCorr">—</strong><span>spot return × Δvariance</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="panel-risk" class="tab-panel" role="tabpanel" aria-labelledby="tab-risk" hidden>
-        <div class="section-heading">
-          <div><p class="eyebrow">Portfolio consequence</p><h2>Translate scenarios into loss</h2></div>
-          <p>Adjust the portfolio, inspect simulated full-revaluation P&amp;L, then compare the browser experiment with the documented 4,027-day out-of-sample study.</p>
-        </div>
-        <div class="workspace-grid risk-layout">
-          <aside class="control-card">
-            <div class="card-heading"><div><small>Portfolio</small><h3>Option strip exposure</h3></div><button class="mini-button" id="riskPreset" type="button">Thesis scale</button></div>
-            <label class="range-row"><span>Total vega <output id="vegaOut">$500k</output></span><input id="vega" type="range" min="100" max="1000" value="500" step="25"></label>
-            <label class="range-row"><span>Gamma exposure <output id="gammaOut">$250k</output></span><input id="gamma" type="range" min="-500" max="1000" value="250" step="25"></label>
-            <label class="range-row"><span>Residual delta <output id="deltaOut">0%</output></span><input id="delta" type="range" min="-100" max="100" value="0" step="5"></label>
-            <label class="toggle-row"><input id="deltaHedge" type="checkbox" checked><span><strong>Daily delta hedge</strong><small>Include hedge, cash carry, and option maturity roll.</small></span></label>
-            <label class="toggle-row"><input id="fullRevaluation" type="checkbox" checked><span><strong>Nonlinear revaluation</strong><small>Retain spot, variance, smile, and convexity effects.</small></span></label>
-            <button class="button primary full" id="revaluePortfolio" type="button">Revalue portfolio</button>
-          </aside>
-
-          <article class="chart-card pnl-card">
-            <div class="card-heading"><div><small>Simulated distribution</small><h3>Portfolio P&amp;L</h3></div><span class="chip" id="lossChip">95% tail</span></div>
-            <canvas id="pnlCanvas" aria-label="Portfolio profit and loss distribution"></canvas>
-          </article>
-
-          <div class="risk-kpis">
-            <div class="risk-kpi primary-kpi"><small id="varLabel">95% VaR</small><strong id="varValue">—</strong><span>positive dollar loss</span></div>
-            <div class="risk-kpi"><small id="esLabel">95% expected shortfall</small><strong id="esValue">—</strong><span>mean beyond VaR</span></div>
-            <div class="risk-kpi"><small>Mean P&amp;L</small><strong id="meanPnl">—</strong><span>scenario average</span></div>
-            <div class="risk-kpi"><small>Worst scenario</small><strong id="worstPnl">—</strong><span>simulated outcome</span></div>
-          </div>
-
-          <article class="table-card backtest-card">
-            <div class="card-heading"><div><small>Empirical study · 2005–2021</small><h3>Out-of-sample validation</h3></div><span class="chip">4,027 forecasts</span></div>
-            <div class="table-wrap"><table>
-              <thead><tr><th>Model</th><th>Expected</th><th>Breaches</th><th>Rate</th><th>CC p-value</th><th>Verdict</th></tr></thead>
-              <tbody id="backtestBody"></tbody>
-            </table></div>
-            <p class="table-note" id="backtestNote">Conditional coverage combines correct exception frequency with independence.</p>
-          </article>
-
-          <article class="chart-card breach-card">
-            <div class="card-heading"><div><small>Coverage diagnostic</small><h3>Expected vs observed exceptions</h3></div><span class="chip" id="coverageChip">95%</span></div>
-            <canvas id="coverageCanvas" aria-label="Expected and observed VaR exceptions"></canvas>
-          </article>
-        </div>
-      </section>
-
-      <section id="panel-compare" class="tab-panel" role="tabpanel" aria-labelledby="tab-compare" hidden>
-        <div class="section-heading">
-          <div><p class="eyebrow">Model governance</p><h2>Use each model for the right job</h2></div>
-          <p>Surface representation, physical scenario probability, and risk-neutral pricing are separate decisions. This matrix prevents a visually attractive fit from being mistaken for a validated risk model.</p>
-        </div>
-        <div class="compare-grid">
-          <article class="table-card method-matrix">
-            <div class="card-heading"><div><small>Role matrix</small><h3>What changes across models?</h3></div><span class="chip">BS ↔ Heston</span></div>
-            <div class="table-wrap"><table>
-              <thead><tr><th>Method</th><th>Surface</th><th>Future spot</th><th>Future variance</th><th>Best use</th></tr></thead>
-              <tbody>
-                <tr><td><strong>Market B-spline</strong></td><td>Flexible fit</td><td>—</td><td>—</td><td>Daily market state</td></tr>
-                <tr><td><strong>PSP / PCA-HS</strong></td><td>Historical shocks</td><td>—</td><td>Surface factors</td><td>Controlled vega-risk test</td></tr>
-                <tr><td><strong>GBM + PSP-FHS</strong></td><td>Paired history</td><td>GBM/FHS</td><td>Implicit IV shock</td><td>Transparent benchmark</td></tr>
-                <tr><td><strong>Heston-MC-P</strong></td><td>Conditional repricing</td><td>Joint diffusion</td><td>Physical CIR proxy</td><td>Candidate VaR law</td></tr>
-                <tr><td><strong>Heston-MC-Q</strong></td><td>Structural pricing</td><td>Risk-neutral</td><td>Risk-neutral CIR</td><td>Pricing sensitivity only</td></tr>
-              </tbody>
-            </table></div>
-          </article>
-
-          <article class="insight-card"><span class="insight-number">01</span><p class="eyebrow">Surface</p><h3>Fit is not forecast.</h3><p>B-splines and Heston can represent the same observed option market differently. Held-out quote error evaluates representation; VaR backtests evaluate transition dynamics.</p></article>
-          <article class="insight-card"><span class="insight-number">02</span><p class="eyebrow">Measure</p><h3>P and Q have different jobs.</h3><p>Risk-neutral Heston parameters price contingent claims. A VaR engine needs real-world scenario probabilities, so Heston-MC-P estimates a separate trailing physical transition.</p></article>
-          <article class="insight-card"><span class="insight-number">03</span><p class="eyebrow">Validation</p><h3>One passing level is not enough.</h3><p>Heston-MC-P passes joint conditional coverage at 95% in the study, but not at 90% or 99%. Tail performance and exception clustering remain model risks.</p></article>
-
-          <article class="notes-card">
-            <div><p class="eyebrow">Reproducibility</p><h3>Continue with the research project</h3><p>This browser lab is an educational front end. The Python repository contains WRDS extraction, surface reconstruction, PCA, Heston calibration, full revaluation, statistical tests, and the complete report.</p></div>
-            <div class="notes-actions"><a class="button primary" href="https://github.com/AAstroA/vol-surface-risk-lab">Open research repository ↗</a><a class="button ghost" href="https://github.com/AAstroA/vol-surface-risk-lab/blob/main/reports/SPX_WRDS_Thesis_Report_2005_2021.pdf">Read the report ↗</a></div>
-          </article>
-
-          <article class="disclosure-card"><strong>Scope of this browser tool</strong><p>The live surfaces and Monte Carlo paths are deterministic educational calculations built from the visible controls. The backtest table reproduces aggregated results from the research report. No licensed WRDS rows, credentials, or hidden server calls are included.</p></article>
-        </div>
-      </section>
-    </main>
-
-    <footer><span>Volatility Surface Risk Lab</span><span>Educational simulator · not investment advice</span><span id="footerFingerprint">Config 2311-2005-2021</span></footer>
-  </div>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20260818-1"></script>
+      const observer = new MutationObserver(() => {
+        if (footerFingerprint) footerFingerprint.style.display = "none";
+      });
+      if (footerFingerprint) observer.observe(footerFingerprint, { childList: true, characterData: true, subtree: true });
+    });
+  })();
+  </script>
 </body>
 </html>
